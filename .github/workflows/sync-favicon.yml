@@ -1,0 +1,43 @@
+name: Sync favicon ufficiale
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'inventory-full.html'
+      - '.github/workflows/sync-favicon.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync-favicon:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Estrai favicon originale incorporato
+        shell: python
+        run: |
+          import base64, re
+          from pathlib import Path
+          src = Path('inventory-full.html').read_text(encoding='utf-8')
+          m = re.search(r'href=["\']data:image/x-icon;base64,([^"\']+)', src)
+          if not m:
+              raise SystemExit('Favicon x-icon incorporato non trovato in inventory-full.html')
+          Path('favicon.ico').write_bytes(base64.b64decode(m.group(1)))
+          print('favicon.ico scritto:', Path('favicon.ico').stat().st_size, 'byte')
+
+      - name: Commit favicon se cambiato
+        run: |
+          if git diff --quiet -- favicon.ico; then
+            echo "favicon.ico è già corretto"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add favicon.ico
+          git commit -m "Aggiorna favicon.ico ufficiale"
+          git push
